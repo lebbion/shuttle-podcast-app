@@ -3,7 +3,7 @@ use std::{io::BufReader, sync::Arc};
 use anyhow::Result;
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Html},
+    response::{Html, IntoResponse},
     routing::get,
     Router,
 };
@@ -21,6 +21,31 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
         .with_state(app_state);
 
     Ok(router.into())
+}
+
+async fn root(State(app_state): State<AppState>) -> impl IntoResponse {
+    let response = format!(
+        r#"
+<html>
+    <head>
+        <title>My Podcasts</title>
+    </head>
+    <body>
+        <h1>My Podcasts</h1>
+        <ul>
+            {}
+        </ul>
+    </body>
+</html>
+    "#,
+        app_state
+            .iter()
+            .enumerate()
+            .map(|(id, podcast)| { format!(r#"<li><a href="/{}">{}</a></li>"#, id, podcast.title) })
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+    Html(response)
 }
 
 async fn podcast(State(app_state): State<AppState>, Path(id): Path<usize>) -> impl IntoResponse {
