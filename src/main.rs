@@ -13,7 +13,7 @@ type AppState = Arc<Vec<Podcast>>;
 
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
-    let podcasts = read_podcasts_from_xml("https://www.relay.fm/radar/feed");
+    let podcasts = read_podcasts_from_xml("https://www.relay.fm/radar/feed").await?;
     let app_state = Arc::new(podcasts);
     let router = Router::new()
         .route("/", get(root))
