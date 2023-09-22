@@ -1,18 +1,34 @@
-use std::io::BufReader;
+use std::{io::BufReader, sync::Arc};
 
 use anyhow::Result;
-use axum::{routing::get, Router};
+use axum::{
+    extract::{Path, State},
+    response::{IntoResponse, Html},
+    routing::get,
+    Router,
+};
 use xml::{reader::XmlEvent, EventReader};
 
-async fn hello_world() -> &'static str {
-    "Hello, world!"
-}
+type AppState = Arc<Vec<Podcast>>;
 
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
-    let router = Router::new().route("/", get(hello_world));
+    let podcasts = read_podcasts_from_xml("https://www.relay.fm/radar/feed");
+    let app_state = Arc::new(podcasts);
+    let router = Router::new()
+        .route("/", get(root))
+        .route("/:id", get(podcast))
+        .with_state(app_state);
 
     Ok(router.into())
+}
+
+async fn podcast(State(app_state): State<AppState>, Path(id): Path<usize>) -> impl IntoResponse {
+    let podcast = app_state.get(id);
+    Html(match podcast {
+        Some(podcast) => podcast.to_html(),
+        None => "No podcast found".to_string(),
+    })
 }
 
 struct Podcast {
@@ -28,6 +44,30 @@ impl Podcast {
             description: String::new(),
             audio_file: None,
         }
+    }
+
+    fn to_html(&self) -> String {
+        format!(
+            r#"
+            <html>
+                <head>
+                    <title>My Podcast: {}</title>
+                </head>
+                <body>
+                    <h1>{}</h1>
+                    <p>{}</p>
+                    <audio controls src="{}"></audio>
+                </body>
+            </html>
+        "#,
+            self.title,
+            self.title,
+            self.description,
+            match self.audio_file {
+                Some(ref file) => file,
+                None => "No audio available",
+            }
+        )
     }
 }
 
